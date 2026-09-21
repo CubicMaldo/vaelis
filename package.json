@@ -1,0 +1,55 @@
+{
+  "name": "vaelis",
+  "version": "1.0.0",
+  "description": "Fast-Path Gateway and Calibrated Decision Router for AI Agents (System 1 Decision Engine)",
+  "keywords": [
+    "ai",
+    "agent",
+    "router",
+    "gateway",
+    "guardrails",
+    "system-1",
+    "fast-path",
+    "confidence-gating",
+    "llm",
+    "typesafe",
+    "gemini"
+  ],
+  "author": "Vaelis Labs",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run typecheck && npm run test && npm run build"
+  },
+  "dependencies": {
+    "@google/genai": "^2.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.8.2",
+    "vitest": "^5.0.1"
+  }
+}

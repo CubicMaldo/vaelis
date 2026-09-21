@@ -6,7 +6,7 @@
 
 **Sub-50ms System 1 decision engine, 95% token cost reduction, and tri-layer security guardrails for autonomous agent systems.**
 
-[![npm version](https://img.shields.io/npm/v/vaelis.svg?style=flat-square&color=blue)](https://www.npmjs.com/package/vaelis)
+[![npm version](https://img.shields.io/npm/v/@cubicmaldo/vaelis.svg?style=flat-square&color=blue)](https://www.npmjs.com/package/@cubicmaldo/vaelis)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8%2B-blue?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
 [![Tests](https://img.shields.io/badge/Tests-Passing-brightgreen?style=flat-square&logo=vitest&logoColor=white)](tests)
@@ -84,16 +84,16 @@ flowchart TD
 
 ```bash
 # npm
-npm install vaelis
+npm install @cubicmaldo/vaelis
 
 # pnpm
-pnpm add vaelis
+pnpm add @cubicmaldo/vaelis
 
 # yarn
-yarn add vaelis
+yarn add @cubicmaldo/vaelis
 
 # bun
-bun add vaelis
+bun add @cubicmaldo/vaelis
 ```
 
 ### 2. Evaluate in 3 lines of code (Zero-Config)
@@ -101,7 +101,7 @@ bun add vaelis
 Vaelis works out-of-the-box with its built-in deterministic engine—no API key required to start:
 
 ```typescript
-import { Vaelis } from "vaelis";
+import { Vaelis } from "@cubicmaldo/vaelis";
 
 const vaelis = new Vaelis();
 
@@ -136,7 +136,7 @@ console.log(result.tokenSavingsPercent); // 100% (0 heavy tokens spent)
 Protect production databases and servers by intercepting agent tool commands before execution:
 
 ```typescript
-import { Vaelis } from "vaelis";
+import { Vaelis } from "@cubicmaldo/vaelis";
 
 const vaelis = new Vaelis();
 const gateway = vaelis.getGateway();
@@ -160,7 +160,7 @@ if (!verdict.allowed) {
 Route routine user requests through System 1, only awakening expensive models when genuine ambiguity exists:
 
 ```typescript
-import { Vaelis } from "vaelis";
+import { Vaelis } from "@cubicmaldo/vaelis";
 
 const vaelis = new Vaelis({
   defaultPolicy: {
@@ -197,7 +197,7 @@ if (result.routing === "HIGH_CONFIDENCE") {
 Detect adversarial overrides and contradictory instructions with dual-query cross-checking:
 
 ```typescript
-import { Vaelis } from "vaelis";
+import { Vaelis } from "@cubicmaldo/vaelis";
 
 const vaelis = new Vaelis();
 
@@ -218,7 +218,7 @@ console.log(verdict.routing);
 Process thousands of items with sliding-window concurrency control:
 
 ```typescript
-import { Vaelis } from "vaelis";
+import { Vaelis } from "@cubicmaldo/vaelis";
 
 const vaelis = new Vaelis();
 const dispatcher = vaelis.createBatchDispatcher(50); // 50 parallel requests
@@ -239,7 +239,7 @@ const results = await dispatcher.processPool(items, async (item) => {
 Run completely on-premise using open weights (Laya), or configure TypeSafe Cloud with Google Gemini Flash fallback:
 
 ```typescript
-import { Vaelis } from "vaelis";
+import { Vaelis } from "@cubicmaldo/vaelis";
 
 // Cloud with Gemini Flash Fallback
 const vaelis = new Vaelis({

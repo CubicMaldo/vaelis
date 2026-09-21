@@ -1,6 +1,9 @@
 {
-  "name": "vaelis",
+  "name": "@cubicmaldo/vaelis",
   "version": "1.0.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "Fast-Path Gateway and Calibrated Decision Router for AI Agents (System 1 Decision Engine)",
   "keywords": [
     "ai",

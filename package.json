@@ -17,6 +17,14 @@
   ],
   "author": "Vaelis Labs",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CubicMaldo/vaelis.git"
+  },
+  "bugs": {
+    "url": "https://github.com/CubicMaldo/vaelis/issues"
+  },
+  "homepage": "https://github.com/CubicMaldo/vaelis#readme",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

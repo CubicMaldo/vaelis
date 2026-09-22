@@ -29,7 +29,16 @@ async function main() {
     fallback: "deterministic", // Falls back cleanly if local docker container is restarting
   });
 
-  // Configuration 3: Zero-Config Offline Heuristic Engine
+  // Configuration 3: Universal Any-LLM Fallback (OpenAI, Groq, Anthropic, DeepSeek, Ollama, etc.)
+  const universalVaelis = new Vaelis({
+    fallback: {
+      provider: "groq", // or "openai", "anthropic", "deepseek", "ollama", "custom"
+      apiKey: process.env.GROQ_API_KEY,
+      model: "llama-3.3-70b-versatile",
+    },
+  });
+
+  // Configuration 4: Zero-Config Offline Heuristic Engine
   const offlineVaelis = new Vaelis({
     provider: "deterministic",
   });
@@ -88,7 +97,24 @@ async function main() {
   console.log(`- Provider used: ${resultCloud.provider}`);
   console.log(`- Evaluation latency: ${resultCloud.latencyMs}ms`);
   console.log(
-    `- Decision: ${resultCloud.decisions["is_security_urgent"].value} (Conf: ${resultCloud.decisions["is_security_urgent"].confidence})`,
+    `- Decision: ${resultCloud.decisions["is_security_urgent"].value} (Conf: ${resultCloud.decisions["is_security_urgent"].confidence})\n`,
+  );
+
+  console.log("4. Testing Universal LLM Fallback (Groq / OpenAI / any LLM)...");
+  const resultUniversal = await universalVaelis.decide(
+    "Please send me technical specifications for the API.",
+    [
+      {
+        id: "is_tech_spec",
+        kind: "boolean",
+        question: "Is this asking for technical specs?",
+      },
+    ],
+  );
+  console.log(`- Provider used: ${resultUniversal.provider}`);
+  console.log(`- Evaluation latency: ${resultUniversal.latencyMs}ms`);
+  console.log(
+    `- Decision: ${resultUniversal.decisions["is_tech_spec"].value} (Conf: ${resultUniversal.decisions["is_tech_spec"].confidence})`,
   );
 }
 

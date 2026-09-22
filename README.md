@@ -234,25 +234,52 @@ const results = await dispatcher.processPool(items, async (item) => {
 
 ---
 
-### 5. Multi-Provider & Local Edge Setup
+### 5. Multi-Provider & Universal Any-LLM Fallback
 
-Run completely on-premise using open weights (Laya), or configure TypeSafe Cloud with Google Gemini Flash fallback:
+Vaelis features a plug-and-play fallback architecture supporting **any LLM provider** via API key or local edge endpoints with **Zero Core Dependencies** (native `fetch`):
 
 ```typescript
 import { Vaelis } from "@cubicmaldo/vaelis";
 
-// Cloud with Gemini Flash Fallback
-const vaelis = new Vaelis({
-  provider: "typesafe",
-  apiKey: process.env.TYPESAFE_API_KEY,
-  fallback: "gemini-flash",
-  geminiApiKey: process.env.GEMINI_API_KEY,
-});
-
-// OR: 100% On-Premise Local Edge (Laya on localhost:8000)
+// 1. In-Memory & Local Edge (Sub-20ms, Zero Cloud Cost)
 const edgeVaelis = new Vaelis({
   provider: "laya-local",
   endpoint: "http://localhost:8000/v1/systemone",
+});
+
+// 2. Universal Any-LLM Fallback: Groq (Ultra-fast Sub-250ms Llama 3.3)
+const groqVaelis = new Vaelis({
+  fallback: {
+    provider: "groq",
+    apiKey: process.env.GROQ_API_KEY,
+    model: "llama-3.3-70b-versatile",
+  },
+});
+
+// 3. Universal Any-LLM Fallback: OpenAI
+const openAIVaelis = new Vaelis({
+  fallback: {
+    provider: "openai",
+    apiKey: process.env.OPENAI_API_KEY,
+    model: "gpt-4o-mini",
+  },
+});
+
+// 4. Universal Any-LLM Fallback: Anthropic, DeepSeek, or Local Ollama
+const localOllamaVaelis = new Vaelis({
+  fallback: {
+    baseUrl: "http://localhost:11434/v1", // Ollama or vLLM
+    model: "llama3.2",
+  },
+});
+
+// 5. Google Gemini (Native REST, no SDK required)
+const geminiVaelis = new Vaelis({
+  fallback: {
+    provider: "gemini",
+    apiKey: process.env.GEMINI_API_KEY,
+    model: "gemini-2.5-flash",
+  },
 });
 ```
 

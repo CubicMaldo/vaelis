@@ -68,4 +68,116 @@ describe("VaelisClient Core & Transformers", () => {
     expect(result.provider).toBe("deterministic");
     expect(result.usage?.input_tokens).toBeLessThanOrEqual(32_000);
   });
+
+  it("should evaluate via custom LLM evaluator function", async () => {
+    const client = new VaelisClient({
+      fallback: {
+        customEvaluator: async ({ state, questions }) => {
+          expect(state).toBe("Test prompt");
+          expect(questions.custom_rule).toBeDefined();
+          return {
+            custom_rule: {
+              type: "choice",
+              choice: "approved",
+              confidence: 0.99,
+            },
+          };
+        },
+      },
+    });
+
+    const questions = buildTypeSafeQuestions([
+      { id: "custom_rule", kind: "choice", question: "Approve or deny?" },
+    ]);
+
+    const result = await client.evaluate("Test prompt", questions);
+    expect(result.provider).toBe("llm-fallback");
+    expect(result.answers.custom_rule.choice).toBe("approved");
+    expect(result.answers.custom_rule.confidence).toBe(0.99);
+  });
+
+  it("should evaluate via OpenAI-compatible endpoint with mock fetch", async () => {
+    const originalFetch = globalThis.fetch;
+    let interceptedUrl = "";
+    let interceptedBody: any = null;
+
+    globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+      interceptedUrl = url.toString();
+      interceptedBody = JSON.parse(init?.body as string);
+      return {
+        ok: true,
+        json: async () => ({
+          model: "llama-3.3-70b-versatile",
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  answers: {
+                    is_safe: {
+                      type: "noul",
+                      noul: 0.05,
+                      confidence: 0.95,
+                    },
+                  },
+                }),
+              },
+            },
+          ],
+          usage: { prompt_tokens: 45, completion_tokens: 22 },
+        }),
+      } as Response;
+    }) as typeof fetch;
+
+    try {
+      const client = new VaelisClient({
+        fallback: {
+          provider: "groq",
+          apiKey: "gsk_test_123",
+          model: "llama-3.3-70b-versatile",
+        },
+      });
+
+      const questions = buildTypeSafeQuestions([
+        { id: "is_safe", kind: "boolean", question: "Is this action safe?" },
+      ]);
+
+      const result = await client.evaluate("Run safety check", questions);
+
+      expect(interceptedUrl).toBe("https://api.groq.com/openai/v1/chat/completions");
+      expect(interceptedBody.model).toBe("llama-3.3-70b-versatile");
+      expect(result.provider).toBe("groq");
+      expect(result.answers.is_safe.noul).toBe(0.05);
+      expect(result.answers.is_safe.confidence).toBe(0.95);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("should fallback gracefully to deterministic engine when LLM call fails", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () => {
+      throw new Error("Network connection refused");
+    }) as typeof fetch;
+
+    try {
+      const client = new VaelisClient({
+        fallback: {
+          provider: "openai",
+          apiKey: "sk-fake-key",
+        },
+      });
+
+      const questions = buildTypeSafeQuestions([
+        { id: "emergency_check", kind: "boolean", question: "Is it safe?" },
+      ]);
+
+      const result = await client.evaluate("DROP TABLE logs;", questions);
+
+      // Should seamlessly fall back to deterministic engine without crashing
+      expect(result.provider).toBe("deterministic");
+      expect(result.answers.emergency_check).toBeDefined();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });

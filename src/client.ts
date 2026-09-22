@@ -5,6 +5,10 @@ import {
   TypeSafeQuestionPayload,
   TypeSafeJevResponse,
 } from "./types";
+import {
+  resolveLLMFallbackConfig,
+  evaluateWithUniversalLLM,
+} from "./llm-adapter";
 
 /**
  * Transforms standard Vaelis DecisionRules into the official TypeSafe AI questions schema.
@@ -59,7 +63,8 @@ export function buildTypeSafeQuestions(
 /**
  * High-performance System 1 Client for Vaelis.
  * Connects directly to TypeSafe AI Cloud (Jev model), Laya (Local edge model),
- * real Gemini Flash zero-friction fallback, or deterministic heuristic engine.
+ * Universal LLM Fallback (OpenAI, Groq, Anthropic, Gemini, DeepSeek, Ollama),
+ * or deterministic heuristic engine.
  */
 export class VaelisClient {
   public config: EvaluatorConfig;
@@ -70,7 +75,8 @@ export class VaelisClient {
       endpoint: config.endpoint,
       apiKey: config.apiKey,
       geminiApiKey: config.geminiApiKey,
-      fallback: config.fallback || "gemini-flash",
+      fallback: config.fallback ?? "llm",
+      llmFallback: config.llmFallback,
       fallbackOnAuthError: config.fallbackOnAuthError ?? false,
       modelName: config.modelName || "jev-latest",
     };
@@ -177,115 +183,30 @@ export class VaelisClient {
       }
     }
 
-    // 3. Fallback Pipeline: Real Gemini Flash (if configured) or Deterministic Engine
-    const geminiKey =
-      this.config.geminiApiKey ||
-      (typeof process !== "undefined"
-        ? process.env?.GEMINI_API_KEY
-        : undefined);
-
-    if (
-      this.config.provider === "gemini-flash" ||
-      (this.config.fallback === "gemini-flash" && geminiKey)
-    ) {
-      try {
-        const geminiResult = await this.evaluateWithGeminiFlash(
-          cleanState,
-          questions,
-          geminiKey,
-          startTime,
-        );
-        if (geminiResult) {
-          return geminiResult;
+    // 3. Fallback Pipeline: Universal LLM (OpenAI, Groq, Anthropic, Gemini, DeepSeek, etc.) or Deterministic
+    if (this.config.fallback !== "deterministic") {
+      const llmConfig = resolveLLMFallbackConfig(this.config);
+      if (llmConfig) {
+        try {
+          const llmResult = await evaluateWithUniversalLLM(
+            llmConfig,
+            cleanState,
+            questions,
+            startTime,
+          );
+          if (llmResult) {
+            return llmResult;
+          }
+        } catch (llmErr) {
+          console.warn(
+            `[VaelisClient] Universal LLM fallback error (${llmErr instanceof Error ? llmErr.message : String(llmErr)}). Switching to Deterministic Heuristic Engine...`,
+          );
         }
-      } catch (geminiErr) {
-        console.warn(
-          `[VaelisClient] Gemini Flash fallback error (${geminiErr instanceof Error ? geminiErr.message : String(geminiErr)}). Switching to Deterministic Engine...`,
-        );
       }
     }
 
     // Final Deterministic Heuristic Engine
     return this.evaluateDeterministicFallback(cleanState, questions, startTime);
-  }
-
-  /**
-   * Evaluates questions via Google Gemini Flash with structured JSON output
-   */
-  private async evaluateWithGeminiFlash(
-    state: string,
-    questions: Record<string, TypeSafeQuestionPayload>,
-    apiKey?: string,
-    startTime: number = performance.now(),
-  ): Promise<
-    | (TypeSafeJevResponse & {
-        latencyMs: number;
-        provider: SystemOneProvider;
-      })
-    | null
-  > {
-    if (!apiKey) return null;
-
-    try {
-      const { GoogleGenAI } = await import("@google/genai");
-      const ai = new GoogleGenAI({ apiKey });
-
-      const prompt = `You are a System 1 fast-path classification engine (Jev emulator).
-Evaluate the provided state strictly and return answers for each question ID.
-
-STATE TO EVALUATE:
-${state}
-
-QUESTIONS SCHEMA:
-${JSON.stringify(questions, null, 2)}
-
-Respond ONLY with valid JSON matching this exact structure:
-{
-  "answers": {
-    "<question_id>": {
-      "type": "choice" | "noul" | "score",
-      "choice": "selected_option_key (for choice questions)",
-      "noul": 0.0 to 1.0 (probability of TRUE for boolean questions),
-      "score": 0.0 to 1.0 (continuous rating for score questions),
-      "confidence": 0.50 to 1.00 (calibrated prediction confidence)
-    }
-  }
-}`;
-
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: {
-          temperature: 0,
-          responseMimeType: "application/json",
-        },
-      });
-
-      const latencyMs = Math.round(performance.now() - startTime);
-      const text = response.text || "{}";
-      const parsed = JSON.parse(text);
-
-      if (parsed.answers && Object.keys(parsed.answers).length > 0) {
-        return {
-          model: "gemini-2.5-flash-system1",
-          answers: parsed.answers,
-          usage: {
-            input_tokens:
-              response.usageMetadata?.promptTokenCount ??
-              Math.round(state.length / 4),
-            output_tokens:
-              response.usageMetadata?.candidatesTokenCount ??
-              Object.keys(questions).length * 8,
-          },
-          latencyMs,
-          provider: "gemini-flash",
-        };
-      }
-    } catch (error) {
-      console.warn("[VaelisClient] Gemini Flash evaluation failed:", error);
-    }
-
-    return null;
   }
 
   /**

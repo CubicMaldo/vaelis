@@ -1,12 +1,49 @@
 export type DecisionKind = "choice" | "score" | "boolean";
 
-// Multi-Provider Support (Cloud, Local Edge, Fallback & Offline Heuristic)
+// Multi-Provider Support (Cloud, Local Edge, Universal LLM Fallback & Offline Heuristic)
 export type SystemOneProvider =
   | "typesafe"
   | "gemini-flash"
+  | "openai"
+  | "groq"
+  | "anthropic"
+  | "deepseek"
+  | "mistral"
+  | "openrouter"
+  | "ollama"
+  | "llm-fallback"
   | "laya-local"
   | "deterministic"
   | "static-guardrail";
+
+export type SupportedLLMProvider =
+  | "openai"
+  | "groq"
+  | "anthropic"
+  | "gemini"
+  | "deepseek"
+  | "mistral"
+  | "openrouter"
+  | "ollama"
+  | "custom";
+
+export interface LLMFallbackConfig {
+  /** LLM provider preset or 'custom'. Defaults to 'openai' or inferred from baseUrl/env. */
+  provider?: SupportedLLMProvider;
+  /** API key for the LLM provider. */
+  apiKey?: string;
+  /** Model identifier (e.g. 'gpt-4o-mini', 'llama-3.3-70b-versatile', 'claude-3-5-haiku-20241022', 'gemini-2.5-flash'). */
+  model?: string;
+  /** Custom API base URL (e.g. 'https://api.groq.com/openai/v1', 'http://localhost:11434/v1', 'https://api.deepseek.com/v1'). */
+  baseUrl?: string;
+  /** Custom request headers if needed. */
+  headers?: Record<string, string>;
+  /** Optional custom evaluation function for complete control. */
+  customEvaluator?: (params: {
+    state: string;
+    questions: Record<string, TypeSafeQuestionPayload>;
+  }) => Promise<TypeSafeJevResponse["answers"]>;
+}
 
 export interface EvaluatorConfig {
   /** Provider engine to evaluate rules with. Defaults to 'typesafe'. */
@@ -15,10 +52,18 @@ export interface EvaluatorConfig {
   endpoint?: string;
   /** API key for TypeSafe Cloud or secured edge endpoint. */
   apiKey?: string;
-  /** Optional Google Gemini API key for zero-friction fallback. */
+  /** Optional Google Gemini API key for backwards compatibility. */
   geminiApiKey?: string;
-  /** Fallback strategy if primary provider is unavailable. Defaults to 'gemini-flash'. */
-  fallback?: "gemini-flash" | "deterministic";
+  /**
+   * Fallback strategy:
+   * - "deterministic": offline heuristic engine (0 cost, no network).
+   * - "gemini-flash": backwards compatible Gemini fallback.
+   * - "llm": generic LLM fallback (uses llmFallback config or auto-detected env keys).
+   * - LLMFallbackConfig object: full configuration for any LLM.
+   */
+  fallback?: "gemini-flash" | "deterministic" | "llm" | LLMFallbackConfig;
+  /** Explicit LLM fallback configuration. */
+  llmFallback?: LLMFallbackConfig;
   /** Whether to automatically fallback when authentication fails. */
   fallbackOnAuthError?: boolean;
   /** Model identifier. Defaults to 'jev-latest' for TypeSafe. */

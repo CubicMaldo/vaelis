@@ -98,3 +98,4 @@ export * from "./types";
 export * from "./client";
 export * from "./gateway";
 export * from "./batch";
+export * from "./llm-adapter";

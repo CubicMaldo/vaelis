@@ -1,6 +1,6 @@
 {
   "name": "@cubicmaldo/vaelis",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "publishConfig": {
     "access": "public"
   },
@@ -16,7 +16,11 @@
     "confidence-gating",
     "llm",
     "typesafe",
-    "gemini"
+    "gemini",
+    "openai",
+    "groq",
+    "anthropic",
+    "deepseek"
   ],
   "author": "Vaelis Labs",
   "license": "MIT",
@@ -52,9 +56,6 @@
     "test:watch": "vitest",
     "lint": "tsc --noEmit",
     "prepublishOnly": "npm run typecheck && npm run test && npm run build"
-  },
-  "dependencies": {
-    "@google/genai": "^2.4.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

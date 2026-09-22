@@ -9,6 +9,7 @@ import {
   resolveLLMFallbackConfig,
   evaluateWithUniversalLLM,
 } from "./llm-adapter";
+import { sanitizeState } from "./utils";
 
 /**
  * Transforms standard Vaelis DecisionRules into the official TypeSafe AI questions schema.
@@ -87,7 +88,7 @@ export class VaelisClient {
    * Enforces 32k token context window (~128k chars) and 30s hard timeouts.
    */
   async evaluate(
-    state: string,
+    state: unknown,
     questions: Record<string, TypeSafeQuestionPayload>,
   ): Promise<
     TypeSafeJevResponse & { latencyMs: number; provider: SystemOneProvider }
@@ -95,8 +96,7 @@ export class VaelisClient {
     const startTime = performance.now();
     // Strict 32,000 token context boundary (~4 chars/token = 128,000 characters)
     const MAX_STATE_CHARS = 128_000;
-    const cleanState =
-      state.length > MAX_STATE_CHARS ? state.slice(0, MAX_STATE_CHARS) : state;
+    const cleanState = sanitizeState(state, MAX_STATE_CHARS);
 
     // 1. TypeSafe AI Cloud Provider
     if (this.config.provider === "typesafe" && this.config.apiKey) {

@@ -44,7 +44,7 @@ function enrichLLMConfig(
     DEFAULT_MODELS[provider] ||
     "gpt-4o-mini";
 
-  let apiKey = raw.apiKey || parent.apiKey;
+  let apiKey = raw.apiKey || parent.apiKey || parent.fallbackApiKey;
 
   const env = (globalThis as {
     process?: { env?: Record<string, string | undefined> };
@@ -53,7 +53,7 @@ function enrichLLMConfig(
     if (provider === "groq") apiKey = env.GROQ_API_KEY;
     else if (provider === "openai") apiKey = env.OPENAI_API_KEY;
     else if (provider === "anthropic") apiKey = env.ANTHROPIC_API_KEY;
-    else if (provider === "gemini") apiKey = env.GEMINI_API_KEY || parent.geminiApiKey;
+    else if (provider === "gemini") apiKey = env.GEMINI_API_KEY || parent.fallbackApiKey || parent.geminiApiKey;
     else if (provider === "deepseek") apiKey = env.DEEPSEEK_API_KEY;
     else if (provider === "mistral") apiKey = env.MISTRAL_API_KEY;
     else if (provider === "openrouter") apiKey = env.OPENROUTER_API_KEY;
@@ -98,13 +98,13 @@ export function resolveLLMFallbackConfig(
 
   // 3. Provider set directly as primary LLM provider (e.g. provider: 'openai', provider: 'groq', etc.)
   const prov = evaluatorConfig.provider as any;
-  if (prov && (prov in DEFAULT_MODELS || prov === "gemini-flash")) {
+  if (prov && (prov in DEFAULT_MODELS || prov === "gemini-flash" || prov === "gemini")) {
     const resolvedProv: SupportedLLMProvider =
-      prov === "gemini-flash" ? "gemini" : (prov as SupportedLLMProvider);
+      (prov === "gemini-flash" || prov === "gemini") ? "gemini" : (prov as SupportedLLMProvider);
     return enrichLLMConfig(
       {
         provider: resolvedProv,
-        apiKey: evaluatorConfig.apiKey || evaluatorConfig.geminiApiKey,
+        apiKey: evaluatorConfig.apiKey || evaluatorConfig.fallbackApiKey || evaluatorConfig.geminiApiKey,
         model: evaluatorConfig.modelName,
         baseUrl: evaluatorConfig.endpoint,
       },
@@ -114,10 +114,13 @@ export function resolveLLMFallbackConfig(
 
   // 4. Backward-compatible Gemini configuration
   if (
+    evaluatorConfig.fallbackApiKey ||
     evaluatorConfig.geminiApiKey ||
-    evaluatorConfig.fallback === "gemini-flash"
+    evaluatorConfig.fallback === "gemini-flash" ||
+    evaluatorConfig.fallback === "gemini"
   ) {
     const key =
+      evaluatorConfig.fallbackApiKey ||
       evaluatorConfig.geminiApiKey ||
       env?.GEMINI_API_KEY;
     if (key) {

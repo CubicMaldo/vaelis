@@ -50,7 +50,7 @@ export class Vaelis {
    */
   createGuardrail(rule: DecisionRule) {
     return {
-      validate: async (actionPayload: string) => {
+      validate: async (actionPayload: string): Promise<import("./types").SecurityVerdict> => {
         const result = await this.decide(actionPayload, [rule]);
         const decision = result.decisions[rule.id];
         // For boolean rules (e.g. "is_destructive"), a TRUE value with high
@@ -60,11 +60,23 @@ export class Vaelis {
           rule.kind === "boolean"
             ? decision?.value === false || decision?.value === undefined
             : (decision?.accepted ?? false);
+            
+        const allowed = result.routing === "HIGH_CONFIDENCE" && valueIsSafe;
+        
         return {
-          allowed: result.routing === "HIGH_CONFIDENCE" && valueIsSafe,
-          confidence: result.minConfidence,
-          outcome: result.routing,
-          decision,
+          allowed,
+          routing: result.routing,
+          minConfidence: result.minConfidence,
+          latencyMs: result.latencyMs,
+          actionTaken: allowed ? "GUARDRAIL_PASSED" : "GUARDRAIL_FAILED",
+          decisions: {
+            [rule.id]: {
+              ruleId: rule.id,
+              value: decision?.value,
+              confidence: decision?.confidence ?? 0,
+              accepted: decision?.accepted ?? false,
+            }
+          }
         };
       },
     };
@@ -99,3 +111,6 @@ export * from "./client";
 export * from "./gateway";
 export * from "./batch";
 export * from "./llm-adapter";
+export * from "./utils";
+export * from "./pool";
+

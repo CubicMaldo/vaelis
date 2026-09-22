@@ -52,16 +52,21 @@ export interface EvaluatorConfig {
   endpoint?: string;
   /** API key for TypeSafe Cloud or secured edge endpoint. */
   apiKey?: string;
-  /** Optional Google Gemini API key for backwards compatibility. */
+  /** 
+   * @deprecated Use `fallbackApiKey` or `llmFallback` config instead.
+   */
   geminiApiKey?: string;
   /**
    * Fallback strategy:
    * - "deterministic": offline heuristic engine (0 cost, no network).
-   * - "gemini-flash": backwards compatible Gemini fallback.
    * - "llm": generic LLM fallback (uses llmFallback config or auto-detected env keys).
+   * - SupportedLLMProvider: Direct provider string (e.g. 'gemini', 'openai').
    * - LLMFallbackConfig object: full configuration for any LLM.
+   * @deprecated The string "gemini-flash" is deprecated, use "gemini" instead.
    */
-  fallback?: "gemini-flash" | "deterministic" | "llm" | LLMFallbackConfig;
+  fallback?: "gemini-flash" | "deterministic" | "llm" | SupportedLLMProvider | LLMFallbackConfig;
+  /** Explicit API key for the fallback provider. */
+  fallbackApiKey?: string;
   /** Explicit LLM fallback configuration. */
   llmFallback?: LLMFallbackConfig;
   /** Whether to automatically fallback when authentication fails. */
@@ -111,6 +116,8 @@ export type RoutingOutcome =
   | "STATIC_GUARDRAIL_BLOCK"
   | "CROSS_CHECK_DISSONANCE"
   | "ADVERSARIAL_FREEZE";
+
+export type RoutingTier = "HIGH" | "MEDIUM" | "ESCALATE";
 
 export interface GuardrailDecision {
   ruleId: string;

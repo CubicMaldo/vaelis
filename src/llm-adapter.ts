@@ -145,14 +145,52 @@ ${JSON.stringify(questions, null, 2)}`;
 }
 
 /**
- * Strips markdown code fences if present and parses JSON.
+ * Checks if the endpoint is local (e.g. Ollama or local vLLM).
+ */
+function isLocalEndpoint(provider: SupportedLLMProvider, baseUrl?: string): boolean {
+  if (provider === "ollama") return true;
+  if (baseUrl && (baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1"))) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Strips markdown code fences or surrounding text and safely parses JSON.
  */
 function cleanAndParseJSON(raw: string): any {
   let text = raw.trim();
-  if (text.startsWith("```")) {
-    text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (codeBlockMatch) {
+    text = codeBlockMatch[1].trim();
+  } else {
+    const firstBrace = text.indexOf("{");
+    const lastBrace = text.lastIndexOf("}");
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      text = text.slice(firstBrace, lastBrace + 1);
+    }
   }
   return JSON.parse(text);
+}
+
+/**
+ * Normalizes parsed JSON into the standard TypeSafeJevResponse answers structure.
+ */
+function extractAnswers(
+  parsed: any,
+  questions: Record<string, TypeSafeQuestionPayload>,
+): TypeSafeJevResponse["answers"] {
+  if (parsed && typeof parsed === "object") {
+    if (parsed.answers && typeof parsed.answers === "object") {
+      return parsed.answers;
+    }
+    const questionKeys = Object.keys(questions);
+    const hasDirectKeys = questionKeys.some((k) => k in parsed);
+    if (hasDirectKeys) {
+      return parsed;
+    }
+  }
+  return {};
 }
 
 /**
@@ -171,9 +209,18 @@ async function callOpenAICompatible(
     "https://api.openai.com/v1";
   const model = config.model || DEFAULT_MODELS[provider] || "gpt-4o-mini";
 
+  const isLocal = isLocalEndpoint(provider, baseUrl);
+  const apiKey = config.apiKey?.trim();
+
+  if (!isLocal && !apiKey) {
+    throw new Error(
+      `[LLM Fallback ${provider}] Missing API key for cloud provider. Please provide apiKey in config or set ${provider.toUpperCase()}_API_KEY.`,
+    );
+  }
+
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey.trim()}` } : {}),
+    ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
     ...(config.headers || {}),
   };
 
@@ -212,7 +259,7 @@ async function callOpenAICompatible(
 
   return {
     model: `${provider}:${model}`,
-    answers: parsed.answers || {},
+    answers: extractAnswers(parsed, questions),
     usage: {
       input_tokens: data.usage?.prompt_tokens ?? Math.round(state.length / 4),
       output_tokens: data.usage?.completion_tokens ?? Object.keys(questions).length * 8,
@@ -272,7 +319,7 @@ async function callAnthropic(
 
   return {
     model: `anthropic:${model}`,
-    answers: parsed.answers || {},
+    answers: extractAnswers(parsed, questions),
     usage: {
       input_tokens: data.usage?.input_tokens ?? Math.round(state.length / 4),
       output_tokens: data.usage?.output_tokens ?? Object.keys(questions).length * 8,
@@ -332,7 +379,7 @@ ${buildUserContent(state, questions)}`;
 
   return {
     model: `gemini:${model}`,
-    answers: parsed.answers || {},
+    answers: extractAnswers(parsed, questions),
     usage: {
       input_tokens: data.usageMetadata?.promptTokenCount ?? Math.round(state.length / 4),
       output_tokens:
@@ -381,3 +428,4 @@ export async function evaluateWithUniversalLLM(
   // All OpenAI-compatible providers: openai, groq, deepseek, mistral, openrouter, ollama, custom
   return callOpenAICompatible(config, state, questions, startTime);
 }
+

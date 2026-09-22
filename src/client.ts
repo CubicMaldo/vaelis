@@ -255,14 +255,27 @@ export class VaelisClient {
           lower.includes("denuncia") ||
           lower.includes("amenaza") ||
           lower.includes("drop") ||
-          lower.includes("rm -rf");
+          lower.includes("rm -rf") ||
+          lower.includes("truncate") ||
+          lower.includes("delete from");
         const isPositive =
           lower.includes("gracias") ||
           lower.includes("demo") ||
           lower.includes("precio") ||
           lower.includes("select") ||
           lower.includes("consulta");
-        const noulVal = isNegative ? 0.95 : isPositive ? 0.08 : 0.62;
+
+        const isSafetyQuestion =
+          id.toLowerCase().includes("safe") ||
+          q.instructions.toLowerCase().includes("safe");
+
+        let noulVal = 0.62;
+        if (isSafetyQuestion) {
+          noulVal = isNegative ? 0.05 : isPositive ? 0.95 : 0.75;
+        } else {
+          noulVal = isNegative ? 0.95 : isPositive ? 0.08 : 0.62;
+        }
+
         answers[id] = {
           type: "noul",
           noul: noulVal,

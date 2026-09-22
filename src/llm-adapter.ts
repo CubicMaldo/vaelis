@@ -46,14 +46,17 @@ function enrichLLMConfig(
 
   let apiKey = raw.apiKey || parent.apiKey;
 
-  if (!apiKey && typeof process !== "undefined" && process.env) {
-    if (provider === "groq") apiKey = process.env.GROQ_API_KEY;
-    else if (provider === "openai") apiKey = process.env.OPENAI_API_KEY;
-    else if (provider === "anthropic") apiKey = process.env.ANTHROPIC_API_KEY;
-    else if (provider === "gemini") apiKey = process.env.GEMINI_API_KEY || parent.geminiApiKey;
-    else if (provider === "deepseek") apiKey = process.env.DEEPSEEK_API_KEY;
-    else if (provider === "mistral") apiKey = process.env.MISTRAL_API_KEY;
-    else if (provider === "openrouter") apiKey = process.env.OPENROUTER_API_KEY;
+  const env = (globalThis as {
+    process?: { env?: Record<string, string | undefined> };
+  }).process?.env;
+  if (!apiKey && env) {
+    if (provider === "groq") apiKey = env.GROQ_API_KEY;
+    else if (provider === "openai") apiKey = env.OPENAI_API_KEY;
+    else if (provider === "anthropic") apiKey = env.ANTHROPIC_API_KEY;
+    else if (provider === "gemini") apiKey = env.GEMINI_API_KEY || parent.geminiApiKey;
+    else if (provider === "deepseek") apiKey = env.DEEPSEEK_API_KEY;
+    else if (provider === "mistral") apiKey = env.MISTRAL_API_KEY;
+    else if (provider === "openrouter") apiKey = env.OPENROUTER_API_KEY;
   }
 
   return {
@@ -71,6 +74,10 @@ function enrichLLMConfig(
 export function resolveLLMFallbackConfig(
   evaluatorConfig: EvaluatorConfig,
 ): LLMFallbackConfig | null {
+  const env = (globalThis as {
+    process?: { env?: Record<string, string | undefined> };
+  }).process?.env;
+
   // If explicitly disabled or deterministic, do not attempt LLM fallback
   if (evaluatorConfig.fallback === "deterministic") {
     return null;
@@ -112,9 +119,7 @@ export function resolveLLMFallbackConfig(
   ) {
     const key =
       evaluatorConfig.geminiApiKey ||
-      (typeof process !== "undefined"
-        ? process.env?.GEMINI_API_KEY
-        : undefined);
+      env?.GEMINI_API_KEY;
     if (key) {
       return {
         provider: "gemini",
@@ -126,39 +131,39 @@ export function resolveLLMFallbackConfig(
   }
 
   // 5. Auto-detect environment keys if fallback is not explicitly disabled
-  if (typeof process !== "undefined" && process.env) {
-    if (process.env.GROQ_API_KEY) {
+  if (env) {
+    if (env.GROQ_API_KEY) {
       return {
         provider: "groq",
-        apiKey: process.env.GROQ_API_KEY,
+        apiKey: env.GROQ_API_KEY,
         model: DEFAULT_MODELS.groq,
       };
     }
-    if (process.env.OPENAI_API_KEY) {
+    if (env.OPENAI_API_KEY) {
       return {
         provider: "openai",
-        apiKey: process.env.OPENAI_API_KEY,
+        apiKey: env.OPENAI_API_KEY,
         model: DEFAULT_MODELS.openai,
       };
     }
-    if (process.env.DEEPSEEK_API_KEY) {
+    if (env.DEEPSEEK_API_KEY) {
       return {
         provider: "deepseek",
-        apiKey: process.env.DEEPSEEK_API_KEY,
+        apiKey: env.DEEPSEEK_API_KEY,
         model: DEFAULT_MODELS.deepseek,
       };
     }
-    if (process.env.ANTHROPIC_API_KEY) {
+    if (env.ANTHROPIC_API_KEY) {
       return {
         provider: "anthropic",
-        apiKey: process.env.ANTHROPIC_API_KEY,
+        apiKey: env.ANTHROPIC_API_KEY,
         model: DEFAULT_MODELS.anthropic,
       };
     }
-    if (process.env.GEMINI_API_KEY) {
+    if (env.GEMINI_API_KEY) {
       return {
         provider: "gemini",
-        apiKey: process.env.GEMINI_API_KEY,
+        apiKey: env.GEMINI_API_KEY,
         model: DEFAULT_MODELS.gemini,
       };
     }

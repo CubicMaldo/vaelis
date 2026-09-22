@@ -118,6 +118,7 @@ describe("Vaelis Security Guardrails & Tool Interception", () => {
 
     const result = await guard.validate("consulta select status");
     expect(result.allowed).toBe(true);
-    expect(result.outcome).toBe("HIGH_CONFIDENCE");
+    expect(result.routing).toBe("HIGH_CONFIDENCE");
+    expect(result.minConfidence).toBeGreaterThan(0.85);
   });
 });

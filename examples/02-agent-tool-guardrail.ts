@@ -64,12 +64,12 @@ async function main() {
 
   async function executeAgentTool(toolName: string, payload: string) {
     const check = await safetyGuardrail.validate(payload);
-    if (!check.allowed) {
-      console.log(
-        `⛔ [Blocked] Tool "${toolName}" denied execution! Reason: ${check.outcome}`,
-      );
-      return { status: "BLOCKED", outcome: check.outcome };
-    }
+      if (!check.allowed) {
+        console.warn(
+          `⛔ [Blocked] Tool "${toolName}" denied execution! Reason: ${check.routing}`,
+        );
+        return { status: "BLOCKED", outcome: check.routing };
+      }
     console.log(
       `✅ [Allowed] Executing tool "${toolName}" with payload: ${payload}`,
     );

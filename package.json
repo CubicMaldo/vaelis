@@ -5,6 +5,9 @@
     "access": "public"
   },
   "description": "Fast-Path Gateway and Calibrated Decision Router for AI Agents (System 1 Decision Engine)",
+  "engines": {
+    "node": ">=20.12.0"
+  },
   "keywords": [
     "ai",
     "agent",

@@ -21,6 +21,15 @@
 [Benchmarks](#-benchmarks) •
 [Documentation](#-documentation)
 
+
+---
+
+## Disclaimer & Affiliation
+
+**Vaelis is an independent, open-source community project** created by third-party developers building on the public API standards of [TypeSafe AI](https://typesafe.ai). It is **not an official SDK or product of TypeSafe AI**, and is not formally affiliated with, endorsed by, sponsored by, or maintained by TypeSafe AI.
+
+All registered trademarks, product names, and company names cited herein (`TypeSafe AI`, `Jev`, `Laya`) are the intellectual property of their respective owners. Their inclusion in this repository is purely for technical compatibility and descriptive purposes.
+
 ---
 
 </div>
@@ -43,15 +52,17 @@ Routing all these questions to heavy frontier models (**System 2: GPT-4o, Claude
 
 ## The Solution: Vaelis System 1 Fast-Path
 
-**Vaelis** acts as the deterministic **System 1 reflex layer** for AI agents:
+**Vaelis** acts as the deterministic **System 1 reflex layer** for AI agents, built to interface seamlessly with **Jev**, the first dedicated System One model by [TypeSafe AI](https://typesafe.ai) (launched September 2026, backed by $40M DCVC):
 
 - **Sub-50ms Decisions:** Evaluates parallel boolean, categorical, and continuous rules in under 50 milliseconds.
 - **Calibrated Probabilistic Confidence:** Replaces arbitrary LLM text outputs with mathematically rigorous confidence scores ($0.00$ to $1.00$).
-- **95% Token & Cost Reduction:** Bypasses the heavy reasoning model entirely when confidence $\ge 0.90$.
+- **95%+ Token & Cost Reduction:** Bypasses heavy frontier reasoning models entirely when confidence $\ge 0.90$.
 - **Tri-Layer Agent Tool Guardrails:** Prevents lethal commands (`rm -rf`, `DROP TABLE`), detects adversarial prompt injections, and freezes execution upon cognitive dissonance.
-- **Multi-Provider Resilience:** Native support for **TypeSafe AI Cloud** (`jev-latest`), **Laya Local Edge** (`localhost:8000`), **Google Gemini Flash** fallback, and an **Offline Deterministic Heuristic Engine**.
+- **Multi-Provider Resilience & Early Access Support:** Native support for [TypeSafe AI](https://typesafe.ai) Cloud (`jev-latest`), [Laya](https://typesafe.ai) Local Edge (`localhost:8000`), Google Gemini Flash, Groq, OpenAI, Anthropic, and local Ollama, backed by an auditable in-memory Offline Deterministic Engine.
 
-*(Note: The "Offline Deterministic Engine" is not a black-box ML model. It relies on a transparent, auditable combination of strict regex pattern matching, pre-compiled keyword heuristics, and fast boolean logic evaluations. This guarantees predictability for security and compliance.)*
+> **Note on Early Access:** Jev is currently rolling out in private early access via a waitlist at [typesafe.ai](https://typesafe.ai). Vaelis was intentionally designed with universal fallback adapters so you can integrate the System 1 architecture into your agents immediately using your existing LLM provider (or zero-dependency offline heuristics) without waiting for API access. Once your TypeSafe key arrives, you can enable native Jev with a single configuration flag.
+
+*(The built-in "Offline Deterministic Engine" is not a black-box ML model. It uses an auditable combination of strict regex pattern matching, pre-compiled keyword heuristics, and fast boolean logic evaluations to ensure total predictability and zero-cost offline execution.)*
 
 ---
 
@@ -237,18 +248,25 @@ const results = await dispatcher.processPool(items, async (item) => {
 
 ### 5. Multi-Provider & Universal Any-LLM Fallback
 
-Vaelis features a plug-and-play fallback architecture supporting **any LLM provider** via API key or local edge endpoints with **Zero Core Dependencies** (native `fetch`):
+Vaelis features a cascading fallback architecture. While **[TypeSafe AI](https://typesafe.ai) Cloud (`jev-latest`)** is the primary high-speed System 1 engine, the library supports **any LLM provider or local edge instance** with **Zero Core Dependencies** (native `fetch`), ensuring uninterrupted development while awaiting Jev early access:
 
 ```typescript
 import { Vaelis } from "@cubicmaldo/vaelis";
 
-// 1. In-Memory & Local Edge (Sub-20ms, Zero Cloud Cost)
+// 1. Primary: TypeSafe AI Cloud (Jev 'jev-latest' - Sub-50ms, $0.04/1M input)
+const typesafeVaelis = new Vaelis({
+  provider: "typesafe",
+  apiKey: process.env.TYPESAFE_API_KEY, // From https://typesafe.ai (Early Access)
+  modelName: "jev-latest",
+});
+
+// 2. On-Premise: Laya Local Edge (Sub-20ms, Zero Cloud Egress, Self-Hosted)
 const edgeVaelis = new Vaelis({
   provider: "laya-local",
   endpoint: "http://localhost:8000/v1/systemone",
 });
 
-// 2. Universal Any-LLM Fallback: Groq (Ultra-fast Sub-250ms Llama 3.3)
+// 3. Early Access Fallback: Groq (Ultra-fast Sub-250ms Llama 3.3)
 const groqVaelis = new Vaelis({
   fallback: {
     provider: "groq",
@@ -257,7 +275,7 @@ const groqVaelis = new Vaelis({
   },
 });
 
-// 3. Universal Any-LLM Fallback: OpenAI
+// 4. Early Access Fallback: OpenAI
 const openAIVaelis = new Vaelis({
   fallback: {
     provider: "openai",
@@ -266,7 +284,7 @@ const openAIVaelis = new Vaelis({
   },
 });
 
-// 4. Universal Any-LLM Fallback: Anthropic, DeepSeek, or Local Ollama
+// 5. Early Access Fallback: Anthropic, DeepSeek, or Local Ollama
 const localOllamaVaelis = new Vaelis({
   fallback: {
     baseUrl: "http://localhost:11434/v1", // Ollama or vLLM
@@ -274,7 +292,7 @@ const localOllamaVaelis = new Vaelis({
   },
 });
 
-// 5. Google Gemini (Native REST, no SDK required)
+// 6. Early Access Fallback: Google Gemini (Native REST, zero SDK required)
 const geminiVaelis = new Vaelis({
   fallback: {
     provider: "gemini",
@@ -311,20 +329,26 @@ In an internal customer support agent routing project, agents needed to categori
 
 ---
 
-## Benchmarks
+## Benchmarks & Economics
 
-*Note: The following metrics reflect preliminary internal testing of the deterministic engine vs cloud APIs. We are actively finalizing a reproducible benchmark suite (`benchmark/run.ts`) that details the exact hardware, dataset (e.g., 10,000 synthetic adversarial inputs), and environment configurations. Until published, treat these numbers as theoretical baselines.*
+*Note: The following metrics reflect preliminary internal testing of the deterministic engine vs cloud APIs. We are actively finalizing a reproducible benchmark suite (`benchmark/run.ts`) detailing the exact hardware, dataset (e.g., 10,000 synthetic adversarial inputs), and test runner configurations. Until published, treat these figures as theoretical baselines.*
 
-Benchmark comparison evaluating a classification and guardrail suite across 1,000 requests:
+### Cost & Latency Comparison
 
-| Provider / Model                | Decision Latency (p50) | Cost per 1M Decisions     | Token Savings | Offline Support     |
-| :------------------------------ | :--------------------- | :------------------------ | :------------ | :------------------ |
-| **Vaelis (Deterministic)**      | **0.8 ms**             | **\$0.00**                | **100%**      | ✅ Yes              |
-| **Vaelis (Laya Local Edge)**    | **18 ms**              | **\$0.00** (Compute only) | **100%**      | ✅ Yes (On-premise) |
-| **Vaelis (TypeSafe Cloud)**     | **42 ms**              | **\$0.15**                | **95%+**      | 🌐 Cloud            |
-| **Google Gemini 2.5 Flash**     | 450 ms                 | \$0.60                    | Baseline      | 🌐 Cloud            |
-| **OpenAI GPT-4o**               | 1,400 ms               | \$15.00                   | Baseline      | 🌐 Cloud            |
-| **Anthropic Claude 3.5 Sonnet** | 1,850 ms               | \$18.00                   | Baseline      | 🌐 Cloud            |
+| Provider / Engine | Decision Latency (p50) | Cost per 1M Decisions | Pricing Model / Source | Offline Support |
+| :---------------- | :--------------------- | :-------------------- | :--------------------- | :-------------- |
+| **Vaelis (Offline Heuristic Engine)** | **0.8 ms** | **\$0.00** | In-process regex and boolean logic (zero API calls) | ✅ Yes |
+| **Vaelis (Laya Local Edge)** | **18 ms** | **\$0.00** | Self-hosted open weights (on-premise compute only) | ✅ Yes (On-premise) |
+| **Vaelis (TypeSafe Jev Cloud)** | **42 ms** | **~\$0.01 - \$0.04** | **\$0.04 / 1M input tokens, free output** ([TypeSafe AI](https://typesafe.ai)) | 🌐 Cloud |
+| **Google Gemini 2.5 Flash** (Fallback) | 450 ms | \$0.60 | Standard REST API pricing (\$0.075 / 1M input) | 🌐 Cloud |
+| **OpenAI GPT-4o** (System 2 Frontier) | 1,400 ms | \$15.00 | \$2.50 / 1M input + \$10.00 / 1M output | 🌐 Cloud |
+| **Anthropic Claude 3.5 Sonnet** (System 2) | 1,850 ms | \$18.00 | \$3.00 / 1M input + \$15.00 / 1M output | 🌐 Cloud |
+
+### Why Vaelis is Dramatically Cheaper
+
+1. **In-Process Determinism (\$0.00):** For static guardrails (Layer 1 pattern matches, dangerous shell command filters, schema checks), 0 tokens and 0 network requests are made.
+2. **TypeSafe Jev Token Economics:** Traditional generative LLMs charge high rates for output token generation. In contrast, [TypeSafe AI](https://typesafe.ai)'s Jev model operates on raw probabilistic evaluation: **\$0.04 per 1M input tokens and \$0.00 for output tokens**. A typical structured decision payload (~100–250 tokens) costs fractions of a cent per thousand calls.
+3. **95% Model Gating:** By handling routine categorical decisions in System 1, expensive System 2 frontier models (GPT-4o, Claude 3.5 Sonnet) are only awakened when genuine cognitive dissonance or low confidence occurs.
 
 ---
 
@@ -356,8 +380,6 @@ Contributions, issues, and feature requests are welcome! Feel free to check the 
 3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
 4. Push to the Branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
-
----
 
 ## License
 

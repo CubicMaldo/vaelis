@@ -25,7 +25,7 @@
 
 </div>
 
-## 📌 The Problem
+## The Problem
 
 In modern autonomous agent frameworks (LangChain, LlamaIndex, AutoGen, CrewAI, Vercel AI SDK), agents make dozens of intermediate micro-decisions per workflow:
 
@@ -41,47 +41,45 @@ Routing all these questions to heavy frontier models (**System 2: GPT-4o, Claude
 
 ---
 
-## 💡 The Solution: Vaelis System 1 Fast-Path
+## The Solution: Vaelis System 1 Fast-Path
 
 **Vaelis** acts as the deterministic **System 1 reflex layer** for AI agents:
 
-- ⚡ **Sub-50ms Decisions:** Evaluates parallel boolean, categorical, and continuous rules in under 50 milliseconds.
-- 🎯 **Calibrated Probabilistic Confidence:** Replaces arbitrary LLM text outputs with mathematically rigorous confidence scores ($0.00$ to $1.00$).
-- 💰 **95% Token & Cost Reduction:** Bypasses the heavy reasoning model entirely when confidence $\ge 0.90$.
-- 🛡️ **Tri-Layer Agent Tool Guardrails:** Prevents lethal commands (`rm -rf`, `DROP TABLE`), detects adversarial prompt injections, and freezes execution upon cognitive dissonance.
-- 🔄 **Multi-Provider Resilience:** Native support for **TypeSafe AI Cloud** (`jev-latest`), **Laya Local Edge** (`localhost:8000`), **Google Gemini Flash** fallback, and an **Offline Deterministic Heuristic Engine**.
+- **Sub-50ms Decisions:** Evaluates parallel boolean, categorical, and continuous rules in under 50 milliseconds.
+- **Calibrated Probabilistic Confidence:** Replaces arbitrary LLM text outputs with mathematically rigorous confidence scores ($0.00$ to $1.00$).
+- **95% Token & Cost Reduction:** Bypasses the heavy reasoning model entirely when confidence $\ge 0.90$.
+- **Tri-Layer Agent Tool Guardrails:** Prevents lethal commands (`rm -rf`, `DROP TABLE`), detects adversarial prompt injections, and freezes execution upon cognitive dissonance.
+- **Multi-Provider Resilience:** Native support for **TypeSafe AI Cloud** (`jev-latest`), **Laya Local Edge** (`localhost:8000`), **Google Gemini Flash** fallback, and an **Offline Deterministic Heuristic Engine**.
 
 *(Note: The "Offline Deterministic Engine" is not a black-box ML model. It relies on a transparent, auditable combination of strict regex pattern matching, pre-compiled keyword heuristics, and fast boolean logic evaluations. This guarantees predictability for security and compliance.)*
 
 ---
 
-## 🏛️ Architecture
+## Architecture
 
 ```mermaid
 flowchart TD
-    A["User Input / Agent Action"] --> B["Vaelis Gateway"]
+    A["User Input / Agent Action"] --> B["Vaelis Gateway\n(Tri-Layer Protection)"]
 
-    subgraph "Tri-Layer Protection (<80ms)"
-        B --> C{"Layer 1: Static Check"}
-        C -- "Lethal Pattern Detected" --> D["STATIC_GUARDRAIL_BLOCK (<1ms)"]
-        C -- "Safe Pattern" --> E["Layer 2: 32k Token Boundary"]
-        E --> F["Layer 3: Parallel System 1 Engine\n(TypeSafe / Laya / Gemini Flash)"]
-    end
+    B --> C{"Layer 1: Static Check"}
+    C -- "Lethal Pattern Detected" --> D["STATIC_GUARDRAIL_BLOCK\n(Sub-1ms)"]
+    C -- "Safe Pattern" --> E["Layer 2: 32k Token Boundary"]
+    E --> F["Layer 3: Parallel System 1 Engine\n(TypeSafe / Laya / Gemini Flash)"]
 
     F --> G{"Confidence Gating"}
 
-    G -- "Confidence >= 0.90" --> H["⚡ HIGH_CONFIDENCE\nDirect Deterministic Execution\n(0 Heavy LLM Tokens)"]
-    G -- "0.65 <= Conf < 0.90" --> I["🧠 MEDIUM_CONFIDENCE\nAwaken System 2 Reasoning Model\n(Gemini Pro / Claude / GPT-4o)"]
-    G -- "Conf < 0.65" --> J["👤 LOW_CONFIDENCE\nEscalate to Human (HITL Queue)"]
+    G -- "Conf >= 0.90" --> H["HIGH_CONFIDENCE\nDirect Deterministic Execution\n(0 Heavy LLM Tokens)"]
+    G -- "0.65 to 0.89" --> I["MEDIUM_CONFIDENCE\nAwaken System 2 Reasoning Model\n(Gemini Pro / Claude / GPT-4o)"]
+    G -- "Conf under 0.65" --> J["LOW_CONFIDENCE\nEscalate to Human (HITL Queue)"]
 
     F --> K{"Dissonance & Jailbreak"}
-    K -- "Claimed Safe AND Destructive" --> L["⚠️ CROSS_CHECK_DISSONANCE\nImmediate Freeze to Human Queue"]
-    K -- "Adversarial Injection Detected" --> M["🛑 ADVERSARIAL_FREEZE\nSafety Halt"]
+    K -- "Claimed Safe AND Destructive" --> L["CROSS_CHECK_DISSONANCE\nImmediate Freeze to Human Queue"]
+    K -- "Adversarial Injection Detected" --> M["ADVERSARIAL_FREEZE\nSafety Halt"]
 ```
 
 ---
 
-## ⚡ Quickstart in 30 Seconds
+## Quickstart in 30 Seconds
 
 ### 1. Installation
 
@@ -132,7 +130,7 @@ console.log(result.tokenSavingsPercent); // 100% (0 heavy tokens spent)
 
 ---
 
-## 💼 Use Cases
+## Use Cases
 
 ### 1. Autonomous Agent Tool Guardrails (`interceptToolCall`)
 
@@ -288,7 +286,7 @@ const geminiVaelis = new Vaelis({
 
 ---
 
-## ⚠️ Limitations / When NOT to use Vaelis
+## Limitations / When NOT to use Vaelis
 
 Vaelis is built for high-speed gating and deterministic routing, not broad reasoning.
 
@@ -297,7 +295,7 @@ Vaelis is built for high-speed gating and deterministic routing, not broad reaso
 
 ---
 
-## 📈 Real-World Impact (Case Study)
+## Real-World Impact (Case Study)
 
 In an internal customer support agent routing project, agents needed to categorize incoming tickets to decide if they required destructive tool execution or human escalation.
 
@@ -313,7 +311,7 @@ In an internal customer support agent routing project, agents needed to categori
 
 ---
 
-## 📊 Benchmarks
+## Benchmarks
 
 *Note: The following metrics reflect preliminary internal testing of the deterministic engine vs cloud APIs. We are actively finalizing a reproducible benchmark suite (`benchmark/run.ts`) that details the exact hardware, dataset (e.g., 10,000 synthetic adversarial inputs), and environment configurations. Until published, treat these numbers as theoretical baselines.*
 
@@ -330,7 +328,7 @@ Benchmark comparison evaluating a classification and guardrail suite across 1,00
 
 ---
 
-## 📖 Documentation
+## Documentation
 
 - [System Architecture & Theory](docs/ARCHITECTURE.md)
 - [Complete TypeScript API Reference](docs/API_REFERENCE.md)
@@ -339,7 +337,7 @@ Benchmark comparison evaluating a classification and guardrail suite across 1,00
 
 ---
 
-## 🧪 Testing
+## Testing
 
 Vaelis includes a comprehensive test suite covering all client transforms, confidence thresholds, static regex blocks, cross-check dissonance, and batch concurrency:
 
@@ -349,9 +347,8 @@ npm test
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
-Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/vaelis-labs/vaelis/issues).
 Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/CubicMaldo/vaelis/issues).
 
 1. Fork the Project
@@ -362,6 +359,6 @@ Contributions, issues, and feature requests are welcome! Feel free to check the 
 
 ---
 
-## 📄 License
+## License
 
 Distributed under the MIT License. See [`LICENSE`](LICENSE) for more information.

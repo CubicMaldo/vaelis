@@ -10,7 +10,7 @@ import {
 const DEFAULT_MODELS: Record<SupportedLLMProvider, string> = {
   openai: "gpt-4o-mini",
   groq: "llama-3.3-70b-versatile",
-  gemini: "gemini-2.5-flash",
+  gemini: "gemini-2.0-flash",
   anthropic: "claude-3-5-haiku-20241022",
   deepseek: "deepseek-chat",
   mistral: "mistral-small-latest",
@@ -26,7 +26,44 @@ const DEFAULT_BASE_URLS: Partial<Record<SupportedLLMProvider, string>> = {
   mistral: "https://api.mistral.ai/v1",
   openrouter: "https://openrouter.ai/api/v1",
   ollama: "http://localhost:11434/v1",
+  anthropic: "https://api.anthropic.com/v1",
+  gemini: "https://generativelanguage.googleapis.com/v1beta",
 };
+
+/**
+ * Enriches a partial LLM configuration with defaults, parent config, and environment keys.
+ */
+function enrichLLMConfig(
+  raw: LLMFallbackConfig,
+  parent: EvaluatorConfig,
+): LLMFallbackConfig {
+  const provider = raw.provider || "openai";
+  const model =
+    raw.model ||
+    parent.modelName ||
+    DEFAULT_MODELS[provider] ||
+    "gpt-4o-mini";
+
+  let apiKey = raw.apiKey || parent.apiKey;
+
+  if (!apiKey && typeof process !== "undefined" && process.env) {
+    if (provider === "groq") apiKey = process.env.GROQ_API_KEY;
+    else if (provider === "openai") apiKey = process.env.OPENAI_API_KEY;
+    else if (provider === "anthropic") apiKey = process.env.ANTHROPIC_API_KEY;
+    else if (provider === "gemini") apiKey = process.env.GEMINI_API_KEY || parent.geminiApiKey;
+    else if (provider === "deepseek") apiKey = process.env.DEEPSEEK_API_KEY;
+    else if (provider === "mistral") apiKey = process.env.MISTRAL_API_KEY;
+    else if (provider === "openrouter") apiKey = process.env.OPENROUTER_API_KEY;
+  }
+
+  return {
+    ...raw,
+    provider,
+    model,
+    apiKey,
+    baseUrl: raw.baseUrl || parent.endpoint,
+  };
+}
 
 /**
  * Resolves LLM Fallback configuration from EvaluatorConfig and process.env.
@@ -34,9 +71,14 @@ const DEFAULT_BASE_URLS: Partial<Record<SupportedLLMProvider, string>> = {
 export function resolveLLMFallbackConfig(
   evaluatorConfig: EvaluatorConfig,
 ): LLMFallbackConfig | null {
+  // If explicitly disabled or deterministic, do not attempt LLM fallback
+  if (evaluatorConfig.fallback === "deterministic") {
+    return null;
+  }
+
   // 1. Explicit llmFallback
   if (evaluatorConfig.llmFallback) {
-    return evaluatorConfig.llmFallback;
+    return enrichLLMConfig(evaluatorConfig.llmFallback, evaluatorConfig);
   }
 
   // 2. Object passed into fallback
@@ -44,14 +86,29 @@ export function resolveLLMFallbackConfig(
     typeof evaluatorConfig.fallback === "object" &&
     evaluatorConfig.fallback !== null
   ) {
-    return evaluatorConfig.fallback;
+    return enrichLLMConfig(evaluatorConfig.fallback, evaluatorConfig);
   }
 
-  // 3. Backward-compatible Gemini configuration
+  // 3. Provider set directly as primary LLM provider (e.g. provider: 'openai', provider: 'groq', etc.)
+  const prov = evaluatorConfig.provider as any;
+  if (prov && (prov in DEFAULT_MODELS || prov === "gemini-flash")) {
+    const resolvedProv: SupportedLLMProvider =
+      prov === "gemini-flash" ? "gemini" : (prov as SupportedLLMProvider);
+    return enrichLLMConfig(
+      {
+        provider: resolvedProv,
+        apiKey: evaluatorConfig.apiKey || evaluatorConfig.geminiApiKey,
+        model: evaluatorConfig.modelName,
+        baseUrl: evaluatorConfig.endpoint,
+      },
+      evaluatorConfig,
+    );
+  }
+
+  // 4. Backward-compatible Gemini configuration
   if (
     evaluatorConfig.geminiApiKey ||
-    evaluatorConfig.fallback === "gemini-flash" ||
-    evaluatorConfig.provider === "gemini-flash"
+    evaluatorConfig.fallback === "gemini-flash"
   ) {
     const key =
       evaluatorConfig.geminiApiKey ||
@@ -62,17 +119,14 @@ export function resolveLLMFallbackConfig(
       return {
         provider: "gemini",
         apiKey: key,
-        model: "gemini-2.5-flash",
+        model: evaluatorConfig.modelName || DEFAULT_MODELS.gemini,
+        baseUrl: evaluatorConfig.endpoint,
       };
     }
   }
 
-  // 4. Auto-detect environment keys if fallback is not explicitly set to 'deterministic'
-  if (
-    evaluatorConfig.fallback !== "deterministic" &&
-    typeof process !== "undefined" &&
-    process.env
-  ) {
+  // 5. Auto-detect environment keys if fallback is not explicitly disabled
+  if (typeof process !== "undefined" && process.env) {
     if (process.env.GROQ_API_KEY) {
       return {
         provider: "groq",
@@ -156,7 +210,7 @@ function isLocalEndpoint(provider: SupportedLLMProvider, baseUrl?: string): bool
 }
 
 /**
- * Strips markdown code fences or surrounding text and safely parses JSON.
+ * Strips markdown code fences or surrounding text and safely parses JSON without throwing.
  */
 function cleanAndParseJSON(raw: string): any {
   let text = raw.trim();
@@ -170,7 +224,11 @@ function cleanAndParseJSON(raw: string): any {
       text = text.slice(firstBrace, lastBrace + 1);
     }
   }
-  return JSON.parse(text);
+  try {
+    return JSON.parse(text);
+  } catch {
+    return {};
+  }
 }
 
 /**
@@ -180,16 +238,58 @@ function extractAnswers(
   parsed: any,
   questions: Record<string, TypeSafeQuestionPayload>,
 ): TypeSafeJevResponse["answers"] {
-  if (parsed && typeof parsed === "object") {
-    if (parsed.answers && typeof parsed.answers === "object") {
-      return parsed.answers;
+  if (!parsed || typeof parsed !== "object") {
+    return {};
+  }
+
+  // Case 1: answers is an object keyed by question ID
+  if (
+    parsed.answers &&
+    typeof parsed.answers === "object" &&
+    !Array.isArray(parsed.answers)
+  ) {
+    return parsed.answers;
+  }
+
+  // Case 2: answers is an array of items [{ id: "...", ... }, { ruleId: "...", ... }]
+  if (Array.isArray(parsed.answers)) {
+    const mapped: TypeSafeJevResponse["answers"] = {};
+    for (const item of parsed.answers) {
+      const id = item.id || item.ruleId || item.question_id || item.questionId;
+      if (id) {
+        mapped[id] = item;
+      }
     }
-    const questionKeys = Object.keys(questions);
-    const hasDirectKeys = questionKeys.some((k) => k in parsed);
-    if (hasDirectKeys) {
-      return parsed;
+    if (Object.keys(mapped).length > 0) {
+      return mapped;
     }
   }
+
+  // Case 3: parsed itself is an array of answer items
+  if (Array.isArray(parsed)) {
+    const mapped: TypeSafeJevResponse["answers"] = {};
+    for (const item of parsed) {
+      const id = item.id || item.ruleId || item.question_id || item.questionId;
+      if (id) {
+        mapped[id] = item;
+      }
+    }
+    if (Object.keys(mapped).length > 0) {
+      return mapped;
+    }
+  }
+
+  // Case 4: parsed directly has question keys at root
+  const questionKeys = Object.keys(questions);
+  const directMatches = questionKeys.filter((k) => k in parsed);
+  if (directMatches.length > 0) {
+    const mapped: TypeSafeJevResponse["answers"] = {};
+    for (const k of directMatches) {
+      mapped[k] = parsed[k];
+    }
+    return mapped;
+  }
+
   return {};
 }
 
@@ -247,6 +347,12 @@ async function callOpenAICompatible(
   }
 
   const data = (await response.json()) as any;
+  if (data.error) {
+    throw new Error(
+      `[LLM Fallback ${provider}] API Error: ${data.error.message || JSON.stringify(data.error)}`,
+    );
+  }
+
   const content = data.choices?.[0]?.message?.content || "{}";
   const parsed = cleanAndParseJSON(content);
   const latencyMs = Math.round(performance.now() - startTime);
@@ -282,8 +388,10 @@ async function callAnthropic(
   const apiKey = config.apiKey?.trim();
 
   if (!apiKey) {
-    throw new Error("[LLM Fallback anthropic] Missing API key");
+    throw new Error("[LLM Fallback anthropic] Missing API key for Anthropic provider. Please provide apiKey or set ANTHROPIC_API_KEY.");
   }
+
+  const baseUrl = config.baseUrl || DEFAULT_BASE_URLS.anthropic || "https://api.anthropic.com/v1";
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -300,7 +408,7 @@ async function callAnthropic(
     messages: [{ role: "user", content: buildUserContent(state, questions) }],
   };
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
+  const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/messages`, {
     method: "POST",
     headers,
     body: JSON.stringify(body),
@@ -313,7 +421,18 @@ async function callAnthropic(
   }
 
   const data = (await response.json()) as any;
-  const text = data.content?.[0]?.text || "{}";
+  if (data.error) {
+    throw new Error(
+      `[LLM Fallback anthropic] API Error: ${data.error.message || JSON.stringify(data.error)}`,
+    );
+  }
+
+  const text =
+    data.content
+      ?.filter((b: any) => b.type === "text" || !b.type)
+      ?.map((b: any) => b.text || "")
+      ?.join("\n") || "{}";
+
   const parsed = cleanAndParseJSON(text);
   const latencyMs = Math.round(performance.now() - startTime);
 
@@ -342,14 +461,15 @@ async function callGeminiREST(
   const apiKey = config.apiKey?.trim();
 
   if (!apiKey) {
-    throw new Error("[LLM Fallback gemini] Missing API key");
+    throw new Error("[LLM Fallback gemini] Missing API key for Gemini provider. Please provide apiKey or set GEMINI_API_KEY.");
   }
 
   const fullPrompt = `${buildSystemPrompt()}
 
 ${buildUserContent(state, questions)}`;
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const baseUrl = config.baseUrl || DEFAULT_BASE_URLS.gemini || "https://generativelanguage.googleapis.com/v1beta";
+  const url = `${baseUrl.replace(/\/+$/, "")}/models/${model}:generateContent?key=${apiKey}`;
 
   const response = await fetch(url, {
     method: "POST",
@@ -373,7 +493,18 @@ ${buildUserContent(state, questions)}`;
   }
 
   const data = (await response.json()) as any;
-  const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+  if (data.error) {
+    throw new Error(
+      `[LLM Fallback gemini] API Error: ${data.error.message || JSON.stringify(data.error)}`,
+    );
+  }
+
+  const rawText =
+    data.candidates?.[0]?.content?.parts
+      ?.map((p: any) => p.text || "")
+      ?.filter(Boolean)
+      ?.join("\n") || "{}";
+
   const parsed = cleanAndParseJSON(rawText);
   const latencyMs = Math.round(performance.now() - startTime);
 
@@ -405,7 +536,7 @@ export async function evaluateWithUniversalLLM(
     const latencyMs = Math.round(performance.now() - startTime);
     return {
       model: "custom-evaluator",
-      answers,
+      answers: extractAnswers(answers, questions),
       usage: {
         input_tokens: Math.round(state.length / 4),
         output_tokens: Object.keys(questions).length * 8,
@@ -417,15 +548,19 @@ export async function evaluateWithUniversalLLM(
 
   const provider = config.provider || "openai";
 
+  let result: (TypeSafeJevResponse & { latencyMs: number; provider: SystemOneProvider }) | null = null;
   if (provider === "anthropic") {
-    return callAnthropic(config, state, questions, startTime);
+    result = await callAnthropic(config, state, questions, startTime);
+  } else if (provider === "gemini") {
+    result = await callGeminiREST(config, state, questions, startTime);
+  } else {
+    result = await callOpenAICompatible(config, state, questions, startTime);
   }
 
-  if (provider === "gemini") {
-    return callGeminiREST(config, state, questions, startTime);
+  if (!result || !result.answers || Object.keys(result.answers).length === 0) {
+    console.warn(`[VaelisClient] LLM fallback (${provider}) returned empty answers.`);
+    return null;
   }
 
-  // All OpenAI-compatible providers: openai, groq, deepseek, mistral, openrouter, ollama, custom
-  return callOpenAICompatible(config, state, questions, startTime);
+  return result;
 }
-

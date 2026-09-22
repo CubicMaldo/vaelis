@@ -153,6 +153,92 @@ describe("VaelisClient Core & Transformers", () => {
     }
   });
 
+  it("should parse conversational markdown LLM responses properly", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () => {
+      return {
+        ok: true,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                content: `Here is the JSON output you requested:\n\`\`\`json\n{\n  "answers": {\n    "test_rule": {\n      "type": "choice",\n      "choice": "opt_a",\n      "confidence": 0.96\n    }\n  }\n}\n\`\`\`\nHope this helps!`,
+              },
+            },
+          ],
+          usage: { prompt_tokens: 20, completion_tokens: 30 },
+        }),
+      } as Response;
+    }) as typeof fetch;
+
+    try {
+      const client = new VaelisClient({
+        fallback: {
+          provider: "openai",
+          apiKey: "sk-test",
+        },
+      });
+
+      const questions = buildTypeSafeQuestions([
+        { id: "test_rule", kind: "choice", question: "Pick option", options: ["opt_a", "opt_b"] },
+      ]);
+
+      const result = await client.evaluate("Evaluate me", questions);
+      expect(result.provider).toBe("openai");
+      expect(result.answers.test_rule.choice).toBe("opt_a");
+      expect(result.answers.test_rule.confidence).toBe(0.96);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("should handle Anthropic multi-block responses with thinking blocks", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () => {
+      return {
+        ok: true,
+        json: async () => ({
+          content: [
+            { type: "thinking", thinking: "Analyzing the prompt..." },
+            {
+              type: "text",
+              text: JSON.stringify({
+                answers: {
+                  is_billing: {
+                    type: "noul",
+                    noul: 0.99,
+                    confidence: 0.99,
+                  },
+                },
+              }),
+            },
+          ],
+          usage: { input_tokens: 35, output_tokens: 25 },
+        }),
+      } as Response;
+    }) as typeof fetch;
+
+    try {
+      const client = new VaelisClient({
+        fallback: {
+          provider: "anthropic",
+          apiKey: "sk-ant-test",
+        },
+      });
+
+      const questions = buildTypeSafeQuestions([
+        { id: "is_billing", kind: "boolean", question: "Is this billing?" },
+      ]);
+
+      const result = await client.evaluate("I have an invoice issue", questions);
+      expect(result.provider).toBe("anthropic");
+      expect(result.answers.is_billing.noul).toBe(0.99);
+      expect(result.answers.is_billing.confidence).toBe(0.99);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it("should fallback gracefully to deterministic engine when LLM call fails", async () => {
     const originalFetch = globalThis.fetch;
     globalThis.fetch = (async () => {
@@ -173,7 +259,6 @@ describe("VaelisClient Core & Transformers", () => {
 
       const result = await client.evaluate("DROP TABLE logs;", questions);
 
-      // Should seamlessly fall back to deterministic engine without crashing
       expect(result.provider).toBe("deterministic");
       expect(result.answers.emergency_check).toBeDefined();
     } finally {
